@@ -54,6 +54,5 @@ export function createPostFx(renderer, scene, camera) {
     render() {
       if (enabled && composer) composer.render()
       else renderer.render(scene, camera)
-    },
-  }
+    },  }
 }

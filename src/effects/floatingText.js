@@ -7,6 +7,7 @@ import { FX } from '../config/palette.js'
 const STYLES = {
   breathGain: { color: FX.breathText, size: 1.2, icon: 'lungs', rise: 1.5, life: 1.2 },
   padGain: { color: FX.gainGreen, size: 0.8, icon: null, rise: 1.5, life: 1.0 },
+  padFail: { color: FX.failRed, size: 0.8, icon: null, rise: 1.5, life: 1.0 },
   winsGain: { color: FX.trophy, size: 1.0, icon: 'trophy', rise: 1.2, life: 1.2 },
 }
 

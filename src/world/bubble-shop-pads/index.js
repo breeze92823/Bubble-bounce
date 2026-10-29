@@ -5,6 +5,7 @@
 import { BoxGeometry, CylinderGeometry, Group, MeshBasicMaterial } from 'three'
 import { PADS } from '../../config/world.js'
 import { HUB as C, FX, BUBBLE } from '../../config/palette.js'
+import { abbreviate } from '../../ui/format.js'
 import { BUBBLES } from '../../config/mechanics.js'
 import { glossy, legoMaterial, worldUVs } from '../../shared/materials.js'
 import { floatingLabel } from '../../shared/labels.js'
@@ -14,9 +15,10 @@ import { bake } from '../../bake.js'
 import { glowDisc, pedestal } from '../props.js'
 import { RAPIER, addFixed } from '../../physics.js'
 import { registerZone } from '../../interact.js'
+import { chime, errorSound } from '../../sound.js'
 import { buyBubble, emit, equipBubble, on, state } from '../../state/game.js'
 
-const fmt = (n) => n.toLocaleString('en-US')
+const fmt = (n) => abbreviate(n)
 const priceText = (b) => (b.price === 0 ? 'FREE' : `${fmt(b.price)} Wins`)
 
 // Label lines for a shop pad from the current game state. The price reads yellow when the
@@ -184,9 +186,11 @@ export function buildZone({ scene, particles, floatingTexts, player }) {
     if (state.equippedBubble === p.b.id) return
     const ok = owned ? equipBubble(p.b.id) : state.wins >= p.b.price && buyBubble(p.b.id)
     if (!ok) {
-      floatingTexts?.spawn('padGain', `Need ${fmt(Math.max(1, p.b.price - state.wins))} more Wins!`, p.x, top + 1.2, p.z, { scale: 0.6 })
+      errorSound()
+      floatingTexts?.spawn('padFail', `Need ${fmt(Math.max(1, p.b.price - state.wins))} more Wins!`, p.x, top + 1.2, p.z, { scale: 0.6 })
       return
     }
+    chime()
     particles.glowRing(p.x, top + padH + 0.05, p.z, 0.5, S * 0.8, '#ffffff', 0.3)
     particles.sparkle(p.x, p.item.userData.baseY, p.z, { count: 18, radius: 0.8, size: 0.5, life: 0.9, up: 0.6 })
     floatingTexts?.spawn('padGain', owned ? 'Equipped!' : 'Unlocked!', p.x, top + 1.2, p.z, { scale: 0.7 })
@@ -217,9 +221,11 @@ export function buildZone({ scene, particles, floatingTexts, player }) {
       const owned = state.bubbles.includes('celestial')
       const y = top + ce.height + 1.2
       if (!(owned ? equipBubble('celestial') : state.wins >= celestialDef.price && buyBubble('celestial'))) {
-        floatingTexts?.spawn('padGain', `Need ${fmt(Math.max(1, celestialDef.price - state.wins))} more Wins!`, ce.x, y, ce.z, { scale: 0.6 })
+        errorSound()
+        floatingTexts?.spawn('padFail', `Need ${fmt(Math.max(1, celestialDef.price - state.wins))} more Wins!`, ce.x, y, ce.z, { scale: 0.6 })
         return
       }
+      chime()
       particles.sparkle(ce.x, y - 0.4, ce.z, { count: 24, radius: 0.9, size: 0.5, life: 1, up: 0.8 })
       floatingTexts?.spawn('padGain', owned ? 'Equipped!' : 'Unlocked!', ce.x, y, ce.z, { scale: 0.7 })
     },

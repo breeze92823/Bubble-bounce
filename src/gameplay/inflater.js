@@ -5,6 +5,7 @@ import { Vector3 } from 'three'
 import { BLOW } from '../config/mechanics.js'
 import { BUBBLE as TINTS } from '../config/palette.js'
 import { createBubbleMesh } from '../shared/bubble.js'
+import { inflateSound, pop, twinkle } from '../sound.js'
 
 const easeOut = (t) => 1 - (1 - t) * (1 - t)
 
@@ -21,6 +22,7 @@ export function createInflater({ scene, particles, animator, wandRing, facing })
   let onDone = null
   let done = false
   let sparkAt = 0
+  let blowing = null // the inflate sound, stopped when the bubble pops or is handed over
 
   // Default anchor: just in front of the ring, along the way the avatar faces.
   function atWand(r, out, ring) {
@@ -36,6 +38,8 @@ export function createInflater({ scene, particles, animator, wandRing, facing })
     mesh = null
     anchor = null
     onDone = null
+    blowing?.stop()
+    blowing = null
     animator()?.setOverride(null)
   }
 
@@ -62,6 +66,7 @@ export function createInflater({ scene, particles, animator, wandRing, facing })
       anchor = opts.anchor || atWand
       onDone = done_
       animator()?.setOverride('blow')
+      blowing = inflateSound(duration)
       api.update(0)
     },
     update(dt) {
@@ -83,6 +88,7 @@ export function createInflater({ scene, particles, animator, wandRing, facing })
         const side = Math.cos(a) * d * 0.5
         const s = BLOW.sparkleSize
         particles.sparkle(centre.x + Math.cos(f) * side, centre.y + Math.sin(a) * d * 0.5, centre.z - Math.sin(f) * side, { count: 1, radius: 0.1, size: s[0] + Math.random() * (s[1] - s[0]), life: 0.8, up: 0.4 })
+        twinkle()
       }
       if (k >= 1) {
         done = true
@@ -91,7 +97,10 @@ export function createInflater({ scene, particles, animator, wandRing, facing })
     },
     // Pops the bubble where it is (12 shards + sparkles) and ends the pose.
     stop() {
-      if (mesh) particles.burst(mesh.position.x, mesh.position.y, mesh.position.z, { tint: mesh.userData.tint, diameter: mesh.scale.x })
+      if (mesh) {
+        particles.burst(mesh.position.x, mesh.position.y, mesh.position.z, { tint: mesh.userData.tint, diameter: mesh.scale.x })
+        pop(0)
+      }
       clear()
     },
     // Ends the inflate but keeps the mesh alive: the caller owns it now.

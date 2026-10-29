@@ -1,6 +1,6 @@
 // Game state + events + persistence (CONTRACTS.md §Game state). One mutable `state`,
 // mutated only through the functions here so every change emits its event and is saved.
-import { BUBBLES, DAILY, EGGS, GIFTS, GOALS, LEVELS, MULTIPLIER, PETS, PET_LIMITS, SAVE_KEY, START, TUTORIAL, WANDS, WHEEL, WINS } from '../config/mechanics.js'
+import { BUBBLES, DAILY, EGGS, GIFTS, GOALS, LEVELS, MULTIPLIER, PETS, PET_LIMITS, START, TUTORIAL, WANDS, WHEEL, WINS } from '../config/mechanics.js'
 
 const listeners = new Map()
 export function on(name, fn) {
@@ -75,8 +75,10 @@ export function addBreath(delta, source = 'blow') {
   addXp(gain)
   save()
 }
-export function addWins(delta, source = 'burst') {
-  const gain = activeBoost('wins2x') ? delta * 2 : delta
+export const winsBoostActive = () => activeBoost('wins2x') || activeBoost('wins2x20')
+// `boosted: false` when the caller already applied the 2x Wins potion (a ride's burst).
+export function addWins(delta, source = 'burst', boosted = true) {
+  const gain = boosted && winsBoostActive() ? delta * 2 : delta
   state.wins += gain
   emit('winsChanged', { wins: state.wins, delta: gain, source })
   save()
@@ -259,30 +261,17 @@ export function advanceTutorial(id) {
   emit('tutorialChanged', { step: tutorialStep() })
   save()
 }
+// The banner's SKIP: the whole tutorial counts as done.
+export function skipTutorial() {
+  state.tutorial = TUTORIAL.length
+  emit('tutorialChanged', { step: null })
+  save()
+}
 
 // --- persistence ---------------------------------------------------------------------
-let saveTimer = 0
-export function save() {
-  clearTimeout(saveTimer)
-  saveTimer = setTimeout(saveNow, 1000)
-}
-export function saveNow() {
-  try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(state))
-  } catch {}
-}
-export function load() {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY)
-    if (!raw) return false
-    const data = JSON.parse(raw)
-    Object.assign(state, fresh(), data)
-    state.boosts.active = (state.boosts.active || []).filter((b) => b.until > Date.now())
-    return true
-  } catch {
-    return false
-  }
-}
+// Progress is stored only on the server: net.js sends `snapshot()` whenever it changed. Writers
+// still call save(), which is a no-op kept so they need not care.
+export function save() {}
 // The state as the server stores it (net.js sends this as `saveProgress`).
 export const snapshot = () => state
 // Replaces the state with the server's saved doc (net.js `progress`).
@@ -290,15 +279,12 @@ export function hydrate(doc) {
   const { serverTime, ...saved } = doc || {}
   Object.assign(state, fresh(), saved)
   state.boosts.active = (state.boosts.active || []).filter((b) => b.until > Date.now())
-  saveNow()
   emit('reset', {})
 }
 export function reset() {
   Object.assign(state, fresh())
-  saveNow()
   emit('reset', {})
 }
-window.addEventListener('beforeunload', saveNow)
 
 // Playtime for the gifts panel: accumulated while the tab is visible.
 export function tickPlaytime(dt) {

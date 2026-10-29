@@ -4,11 +4,11 @@
 // save it) or `serverError` (the save could not be read: never overwrite it). From then on the
 // state is sent as `saveProgress` whenever it changed, at most every NET.saveEvery s, and when the
 // tab hides or closes.
-// Guests (not signed in to Bloxity), and everyone when no server is configured, keep their
-// progress in this browser only (state/game.js, localStorage). A guest who signs in to a NEW
-// account brings that progress along (noProgress keeps the current state); an account that has a
-// save loads it instead.
-// Never throws and never blocks play: without a server the game runs on the browser save.
+// Nothing is saved in the browser: guests, and everyone when no server is configured, play with
+// progress that lasts only until the tab closes. A guest who signs in to a NEW account brings
+// that session's progress along (noProgress keeps the current state); an account that has a save
+// loads it instead.
+// Never throws and never blocks play: without a server the game just runs unsaved.
 import { Client } from '@colyseus/sdk'
 import { DEV_MODE, NET, SERVER_URL } from './config.js'
 import { hydrate, snapshot } from './state/game.js'
@@ -121,7 +121,7 @@ async function connect() {
     retryIn = NET.retry
     attach(room)
   } catch (err) {
-    console.info(`[net] could not reach the server (retrying in ${retryIn}s); playing on the browser save`, err?.message ?? err)
+    console.info(`[net] could not reach the server (retrying in ${retryIn}s); playing unsaved`, err?.message ?? err)
     setTimeout(connect, retryIn * 1000)
     retryIn = Math.min(retryIn * 2, NET.retryMax)
   } finally {
@@ -139,7 +139,7 @@ export function initNet({ setLeaderboard } = {}) {
   if (setLeaderboard) onLeaderboard = setLeaderboard
   window.addEventListener('pagehide', saveNow)
   document.addEventListener('visibilitychange', () => document.hidden && saveNow())
-  if (!hasServer()) return console.info('[net] no server configured; progress is kept in this browser')
+  if (!hasServer()) return console.info('[net] no server configured; progress will not be saved')
   subscribeAuth((s) => {
     if (!s.ready) return
     if (!net.connected) return void connect()

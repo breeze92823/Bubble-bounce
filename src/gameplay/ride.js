@@ -13,7 +13,8 @@ import { BLOW_RETURN, DISTANCE_METERS_PER_UNIT, HUB, LANE, SEGMENTS } from '../c
 import { resetPlayer } from '../player.js'
 import { syncYawToPlayer } from '../camera.js'
 import { abbreviate } from '../ui/format.js'
-import { activeBoost, addBreath, addWins, advanceTutorial, emit, equippedBubble, multiplier, recordDistance, state, winsForRide } from '../state/game.js'
+import { boing, chime, coin, fadeWhoosh, fanfare, gulp, launch, pop, rewardSound, swish, windSound } from '../sound.js'
+import { activeBoost, addBreath, addWins, advanceTutorial, emit, equippedBubble, multiplier, recordDistance, state, winsBoostActive, winsForRide } from '../state/game.js'
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v)
 const GRAVITY = -30 // the avatar's drop after the burst
@@ -52,6 +53,7 @@ export function createRide({ scene, player, particles, floatingTexts, inflater, 
   let vy = 0
   let snapT = -1
   let snapYaw = 0 // the bubble faced the shot camera while inflating; it turns down the lane
+  let wind = { set() {}, stop() {} } // the ride's wind loop (sound.js windSound)
   let reward = null // { meters, wins, shown, best, steps: Set }
 
   // The growing bubble sits on -X of the avatar: in front of it in shot B (the avatar faces the
@@ -68,6 +70,7 @@ export function createRide({ scene, player, particles, floatingTexts, inflater, 
     snapT = 0
     avatar.facing = 0 // down the lane
     animator()?.setOverride('ride')
+    gulp()
   }
 
   function begin() {
@@ -103,6 +106,7 @@ export function createRide({ scene, player, particles, floatingTexts, inflater, 
   function updateBlow(dt) {
     if (t - dt < BLOW.shotA.duration && t >= BLOW.shotA.duration) {
       director.fixed(P, BLOW.shotB) // hard cut
+      swish()
       avatar.facing = BLOW.shotB.facing
     }
     if (snapT >= 0 && mesh) {
@@ -137,6 +141,8 @@ export function createRide({ scene, player, particles, floatingTexts, inflater, 
     focus.copy(mesh.position)
     director.follow(() => focus, RIDE.camera, BLOW.rideBlend)
     emit('hudMode', 'ride')
+    launch()
+    wind = windSound()
     emit('bubbleBlown', { diameter: d, distanceMeters: (endZ - LANE.start) * DISTANCE_METERS_PER_UNIT, bubbleType: bubble.id })
   }
 
@@ -161,6 +167,7 @@ export function createRide({ scene, player, particles, floatingTexts, inflater, 
     floatingTexts.spawn('breathGain', `+${abbreviate(shown)}`, side * (LANE.halfWidth + 0.8), LANE.wallHeight + 0.6, z + 3)
     emit('bubbleBounce', { z, index, breathGain: shown })
     director.shake(RIDE.camera.shake, RIDE.camera.shakeTime)
+    boing()
     squash = RIDE.squash
     const dust = RIDE.dust[segmentAt(z).id]
     if (dust) particles.landDust(rideX, groundAt(z) + 0.05, z, dust)
@@ -195,6 +202,7 @@ export function createRide({ scene, player, particles, floatingTexts, inflater, 
     mesh.rotation.x = Math.sin(t * 3.7) * RIDE.wobble * 0.5
     fitAvatar(mesh.position)
 
+    wind.set(h / apex)
     const lift = clamp(1 - h / (apex * 2), 0.4, 1)
     shadow.position.set(rideX, groundAt(z) + 0.03, z)
     shadow.scale.setScalar(r * 1.2 * lift)
@@ -219,6 +227,8 @@ export function createRide({ scene, player, particles, floatingTexts, inflater, 
   function burst(meters) {
     const c = mesh.position
     particles.burst(c.x, c.y, c.z, { tint: mesh.userData.tint, diameter: d })
+    wind.stop()
+    pop(1)
     scene.remove(mesh)
     mesh.traverse((o) => o.material?.dispose?.())
     mesh = null
@@ -228,8 +238,11 @@ export function createRide({ scene, player, particles, floatingTexts, inflater, 
     vy = 0
     phase = 'burst'
     t = 0
-    const wins = winsForRide(meters)
-    reward = { meters, wins, shown: activeBoost('wins2x') ? wins * 2 : wins, best: recordDistance(meters), steps: new Set() }
+    // the potion is applied once, here; the Wins are credited now so closing the tab mid-reward loses nothing
+    const wins = winsForRide(meters) * (winsBoostActive() ? 2 : 1)
+    const mult = multiplier()
+    addWins(wins, 'burst', false)
+    reward = { meters, wins, mult, best: recordDistance(meters), steps: new Set() }
     emit('bubbleBurst', { distanceMeters: meters, z: c.z })
   }
 
@@ -246,8 +259,13 @@ export function createRide({ scene, player, particles, floatingTexts, inflater, 
     if (t >= REWARD.fadeOut && once('fade')) {
       emit('screenFade', { on: true, time: REWARD.fadeTime })
       emit('hudMode', 'reward')
+      fadeWhoosh()
     }
-    if (t >= REWARD.screen && once('screen')) emit('rewardScreen', { wins: reward.shown, meters: reward.meters, best: reward.best })
+    if (t >= REWARD.screen && once('screen')) {
+      emit('rewardScreen', { wins: reward.wins, meters: reward.meters, best: reward.best })
+      if (reward.best) fanfare()
+      else rewardSound()
+    }
     if (t >= REWARD.teleport && once('teleport')) {
       emit('rewardScreen', null)
       director.clear()
@@ -259,23 +277,22 @@ export function createRide({ scene, player, particles, floatingTexts, inflater, 
       anim.grounded = true
       emit('screenFade', { on: false, time: REWARD.fadeIn })
       emit('hudMode', 'default')
+      fadeWhoosh()
     }
     if (t >= REWARD.shower && once('shower')) {
       // the next run may start before the last trophy lands: keep this one's numbers
       const n = REWARD.trophies
-      const total = reward.wins
-      const each = Math.floor(total / n)
-      const shown = reward.shown
+      const { wins, mult } = reward
       const target = () => chest.set(player.renderPosition.x, player.renderPosition.y + player.dims.height * 0.6, player.renderPosition.z)
       particles.trophyShower(target, {
         count: n,
         onArrive(i) {
-          const chunk = i === n - 1 ? total - each * (n - 1) : each
-          if (chunk > 0) addWins(chunk, 'burst')
           particles.sparkle(chest.x, chest.y, chest.z, { count: 4, radius: 0.3, size: 0.4, life: 0.5, up: 0.5 })
+          coin(i)
         },
         onDone() {
-          emit('winsAwarded', { wins: shown, multiplier: multiplier() })
+          chime()
+          emit('winsAwarded', { wins, multiplier: mult })
           advanceTutorial('blow')
         },
       })

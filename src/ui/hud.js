@@ -4,13 +4,13 @@
 import './hud.css'
 import { GIFTS } from '../config/mechanics.js'
 import * as bloxity from '../bloxity.js'
-import { canRebirth, currentGoal, emit, giftUnlockedAt, multiplier, on, rebirthLevel, spinWaitMs, state, tutorialStep, xpForLevel } from '../state/game.js'
+import { canRebirth, emit, giftUnlockedAt, multiplier, on, rebirthLevel, skipTutorial, spinWaitMs, state, tutorialStep, xpForLevel } from '../state/game.js'
 import { abbreviate, commas } from './format.js'
 export { abbreviate }
 
 // Reference frame the sizes in hud.css are measured in, and the heights each column needs.
 const REF = { w: 1920, h: 991, minSide: 700 }
-const LEFT_H = 496 + 200 // goal + 3 rows, plus the stats block under it
+const LEFT_H = 354 + 200 // 3 rows, plus the stats block under it
 const RIGHT_H = 200 + 82 + 70 // offset from the top, the column, the event line
 const LEFT_H_SHORT = 354 // the 3 rows alone
 const RIGHT_H_SHORT = 80 + 82 + 50 // under the top icons, the spin button, the event line
@@ -32,11 +32,6 @@ const TEMPLATE = `
   </div>
 
   <div class="hud-left">
-    <button class="hud-goal" data-action="goal">
-      <span class="t head">GOAL</span>
-      <span class="egg"></span>
-      <span class="t count" data-ref="goal">0/1</span>
-    </button>
     <div class="hud-grid">
       <button class="hud-tile rebirth" data-action="rebirth">
         <span class="t pct" data-ref="rebirthPct">0%</span>
@@ -80,7 +75,10 @@ const TEMPLATE = `
   </div>
 
 
-  <div class="t thin hud-objective" data-ref="objective" hidden></div>
+  <div class="hud-objective" data-ref="objective" hidden>
+    <button class="hud-skip" data-action="skipTutorial"><span class="t thin">SKIP</span></button>
+    <div class="col"><span class="t thin text" data-ref="objectiveText"></span><span class="t thin tip" data-ref="tip" hidden></span></div>
+  </div>
   <div class="t hud-distance" data-ref="distance">0m</div>
   <button class="hud-blow" data-action="blow" data-ref="blow" hidden>
     <span class="t big">BLOW</span>
@@ -111,6 +109,7 @@ export function installHud() {
     if (!btn) return
     e.stopPropagation()
     if (btn.dataset.action === 'blow') return emit('uiBlow')
+    if (btn.dataset.action === 'skipTutorial') return skipTutorial()
     emit('hudAction', { id: btn.dataset.action, index: btn.dataset.index != null ? +btn.dataset.index : undefined })
   })
   // Taps on the HUD must not grab the pointer lock or start a camera drag.
@@ -126,7 +125,7 @@ export function installHud() {
     set(ref.breath, `${abbreviate(state.breath)} BREATH`)
   }
   function renderWins() {
-    set(ref.wins, commas(state.wins))
+    set(ref.wins, abbreviate(state.wins))
   }
   function renderLevel() {
     const need = xpForLevel()
@@ -141,8 +140,6 @@ export function installHud() {
   }
   function renderRebirths() {
     set(ref.rebirths, commas(state.rebirths))
-    const g = currentGoal()
-    set(ref.goal, g ? `${Math.min(state.rebirths, g.rebirths)}/${g.rebirths}` : 'DONE')
   }
   function renderTimers() {
     const wait = spinWaitMs()
@@ -169,7 +166,6 @@ export function installHud() {
     renderRebirths()
     renderLevel()
   })
-  on('goalClaimed', renderRebirths)
   on('boostUsed', renderTimers)
   on('reset', renderAll)
   renderAll()
@@ -194,7 +190,12 @@ export function installHud() {
   function renderObjective() {
     const step = tutorialStep()
     ref.objective.hidden = !step
-    if (step) set(ref.objective, step.text)
+    if (step) set(ref.objectiveText, step.text)
+  }
+  // The guide's tip line under the step (ui/guide.js); '' hides it.
+  function setTip(text) {
+    ref.tip.hidden = !text
+    set(ref.tip, text)
   }
   on('tutorialChanged', renderObjective)
   on('reset', renderObjective)
@@ -212,7 +213,7 @@ export function installHud() {
   on('rewardScreen', (r) => {
     ref.card.hidden = !r
     if (!r) return
-    set(ref.amount, `+${commas(r.wins)}`)
+    set(ref.amount, `+${abbreviate(r.wins)}`)
     set(ref.meters, `${commas(r.meters)}m`)
     ref.best.hidden = !r.best
     ref.card.classList.remove('pop')
@@ -251,7 +252,7 @@ export function installHud() {
 
     let s = Math.min(Math.max(w, h) / REF.w, Math.min(w, h) / REF.minSide)
     // Short screens (phone landscape): the reference stack does not fit under Boxity's chat,
-    // so the goal and stats move beside the button grid.
+    // so the stats move beside the button grid.
     const short = (h - resLeft - 8) / LEFT_H < SHORT_SCALE
     root.classList.toggle('short', short)
     if (short) s = Math.max(SHORT_SCALE, Math.min(s, (h - resLeft - 8) / LEFT_H_SHORT, (h - rightTop - rightBottom) / RIGHT_H_SHORT))
@@ -278,5 +279,5 @@ export function installHud() {
   // Fredoka swaps in late and changes text widths; nothing is measured from text, but re-run once.
   document.fonts?.ready.then(layout)
 
-  return { root, layout }
+  return { root, layout, setTip }
 }

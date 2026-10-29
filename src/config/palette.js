@@ -180,6 +180,7 @@ export const FX = {
   trophyDark: '#c98a0a',
   breathText: '#ffcc1e',
   gainGreen: '#39e24a',
+  failRed: '#ff4848',
   pedestalSparkle: '#ffe23a',
   orbitRing: '#ffe23a',
 }

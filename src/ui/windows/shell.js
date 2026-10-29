@@ -86,9 +86,10 @@ export function render() {
 
 // --- toast -------------------------------------------------------------------------
 let toastTimer = 0
-export function toast(text) {
+export function toast(text, fail = false) {
   const el = document.querySelector('.ui-toast')
   el.textContent = text
+  el.classList.toggle('fail', fail)
   el.classList.add('show')
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => el.classList.remove('show'), 2200)

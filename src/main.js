@@ -17,16 +17,20 @@ import { applyProportions, attachEquippedAccessories } from './avatar/loader.js'
 import { disposeAnimator, makeAnimator } from './avatar/animator.js'
 import { Particles } from './effects/particles.js'
 import { FloatingTexts } from './effects/floatingText.js'
-import { advanceTutorial, emit as emitState, load as loadSave, on as onState, state, tickPlaytime } from './state/game.js'
+import { advanceTutorial, emit as emitState, on as onState, state, tickPlaytime } from './state/game.js'
 import { WandHolder, wandRingWorld } from './shared/wand.js'
 import { createInflater } from './gameplay/inflater.js'
 import { createDirector } from './gameplay/director.js'
 import { createRide } from './gameplay/ride.js'
+import { createBubbleMesh } from './shared/bubble.js'
+import { BUBBLES } from './config/mechanics.js'
 import { installHud } from './ui/hud.js'
+import { createGuide } from './ui/guide.js'
 import { installAllWindows } from './ui/windows/index.js'
 import { isOpen as anyWindowOpen } from './ui/windows/shell.js'
 import { initNet } from './net.js'
-import { installInteract, setInteractEnabled, updateInteract } from './interact.js'
+import { installSound } from './sound.js'
+import { installInteract,setInteractEnabled, updateInteract } from './interact.js'
 
 // Boot order: Bloxity SDK -> renderer -> Rapier (async wasm) -> ground + sky + lighting,
 // player body -> avatar (async, swaps in when ready) -> loop. The SDK is optional at every step.
@@ -50,7 +54,6 @@ function applySetting(key, value) {
 }
 bloxity.onSetting(applySetting)
 bloxity.init()
-loadSave()
 initNet()
 
 // --- Renderer ---------------------------------------------------------------
@@ -151,6 +154,34 @@ const world = buildWorld(scene, { particles, floatingTexts, inflater, player, ri
 createPlayerBody()
 syncYawToPlayer()
 
+// Draw everything once while loading, so the first BLOW and the first ride down the lane do not
+// freeze (0.3-0.9 s each): shaders compile and the driver finishes them on a real draw, and the
+// lane's baked geometry + textures upload, which otherwise happens when the ride camera first sees
+// them. Covers one bubble per type (their materials differ in defines) and everything hidden until
+// a run (the ride's shadow disc ...). The warm-up bubbles are never disposed, so their programs
+// stay alive when a burst disposes the live bubble's material.
+const warmBubbles = BUBBLES.map((b) => createBubbleMesh(b.id, 1))
+function warmUp() {
+  for (const m of warmBubbles) scene.add(m)
+  const hidden = []
+  const culled = []
+  scene.traverse((o) => {
+    if (!o.visible) {
+      hidden.push(o)
+      o.visible = true
+    }
+    if (o.frustumCulled) {
+      culled.push(o)
+      o.frustumCulled = false
+    }
+  })
+  postfx.render()
+  for (const o of hidden) o.visible = false
+  for (const o of culled) o.frustumCulled = true
+  for (const m of warmBubbles) scene.remove(m)
+}
+warmUp()
+
 // Objective banner steps that no zone owns.
 onState('bubbleBought', () => advanceTutorial('buy'))
 onState('rebirth', () => advanceTutorial('rebirth'))
@@ -198,8 +229,10 @@ onKey('KeyR', () => {
 onKey('KeyF', () => emitState('blowPressed'))
 onKey('KeyE', () => emitState('blowPressed'))
 installTouch({ mode: toggleMode, day: () => lighting.toggleDayNight(), respawn: () => !ride.active && respawn() })
-installHud() // after the touch controls: its layout keeps clear of them
+const hud = installHud() // after the touch controls: its layout keeps clear of them
+const guide = createGuide(scene, { hud, player, ride, director }) // the tutorial's arrows + tips
 installAllWindows() // opened by the HUD's hudAction events
+installSound() // WebAudio unlocks on the first gesture
 installInteract() // hold-E prompts (zones register themselves in the world builders)
 
 // --- Loop -------------------------------------------------------------------
@@ -245,6 +278,7 @@ function frame(dt) {
   particles.update(dt, elapsed)
   floatingTexts.update(dt)
   world.update(dt, elapsed)
+  guide.update(elapsed)
   setInteractEnabled(!anyWindowOpen() && !ride.active && !director.active)
   updateInteract()
   tickPlaytime(dt) // gifts unlock on playtime
@@ -276,5 +310,5 @@ if (import.meta.env.DEV) {
   const step = (n = 1, dt = 1 / 60) => {
     for (let i = 0; i < n; i++) frame(dt)
   }
-  window.__game = { player, scene, renderer, camera, renderCamera, postfx, bodies: bodyCount, toggleMode, teleport, step, world, environment, lighting, ride, director, inflater, state, wand }
+  window.__game = { player, scene, renderer, camera, renderCamera, postfx, bodies: bodyCount, toggleMode, teleport, step, world, environment, lighting, ride, director, inflater, state, wand, guide }
 }

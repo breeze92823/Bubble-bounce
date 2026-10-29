@@ -42,7 +42,7 @@ export const BLOW = {
   // Scripted shots (blow-zone-strip.md): offsets from the player's feet P, camera on +X looking -X.
   // `facing` = the avatar's yaw during the shot (pi/2 faces +X, the camera; -pi/2 faces the pads).
   shotA: { duration: 1.0, pos: [1.3, 0.85, 0.35], target: [-0.5, 0.7, -0.05], fov: 70, dolly: 0.1, facing: Math.PI / 2 },
-  shotB: { duration: 0.8, pos: [1.6, 1.3, -0.9], target: [-1.2, 0.8, 0.4], fov: 70, facing: -Math.PI / 2 },
+  shotB: { duration: 0.8, pos: [1.6, 1.3, 0.8], target: [-1.5, 0.55, -0.1], fov: 70, facing: -Math.PI / 2 },
   bubbleGap: 0.35, // the growing bubble's near side, this far out from the avatar on -X (the wand ring in shot B)
   snapTime: 0.2, // end of the inflate: the bubble slides over the avatar
   rideBlend: 0.4,
@@ -63,7 +63,7 @@ export const RIDE = {
   wobble: (5 * Math.PI) / 180,
   squash: 0.18, // s of squash-and-stretch on each landing
   dust: { beach: '#f3e3a8', desert: '#f0c05a', snow: '#ffffff' }, // landing puffs per segment
-  minDistanceMeters: 250, // (A) a fresh player (Breath 1 -> 22 m, under one bounce) still visibly rides down the lane
+  minDistanceMeters: 60, // (A) one bounce (12 u), so a fresh player (Breath 1 -> 22 m) still rides; was 250, which paid 19 Wins a run until ~700 Breath
   distanceMeters: (breath) => Math.max(RIDE.minDistanceMeters, 22 * Math.pow(breath, 0.37)), // (A) 453K -> ~2,730 m
   breathPerBounce: (bubbleBreath, multiplier) => bubbleBreath * multiplier, // 75 x 6 = 450
   xpPerBreath: 1, // (A, Q24)
@@ -76,12 +76,17 @@ export const WINS = {
 // End of a ride (burst-and-rewards.md): seconds after the burst.
 export const REWARD = { fadeOut: 0.3, fadeTime: 0.25, screen: 0.6, teleport: 2.0, fadeIn: 0.3, shower: 2.3, trophies: 12, count: 1.0 }
 
-// First-run objective banner (A; Bowling Roll's TUTORIAL, trimmed): advanced by game events.
+// First-run tutorial (Bowling Roll's TUTORIAL): the objective banner + SKIP (ui/hud.js) and the
+// guide's arrows + tip (ui/guide.js), in order; `advanceTutorial(id)` completes a step. The saved
+// `state.tutorial` is an index into this list, so only ever append steps. target: where the
+// guide leads ('pad' = the best unlocked training pad, 'strip' = the Blow Zone, 'bubble' = the
+// next shop bubble, or the Blow Zone while it costs more Wins than you have); `button`: the HUD
+// button the UI arrow points at once there ('rebirth' = the Rebirth tile once the level allows).
 export const TUTORIAL = [
-  { id: 'train', text: 'Stand on the 1x BREATH pad to train your Breath' },
-  { id: 'blow', text: 'Go to the BLOW ZONE and press BLOW!' },
-  { id: 'buy', text: 'Step on the +3 Breath pad to buy a better bubble' },
-  { id: 'rebirth', text: 'Level up and Rebirth to unlock the 4x pad' },
+  { id: 'train', text: 'Stand on the 1x BREATH pad to train your Breath', target: 'pad' },
+  { id: 'blow', text: 'Go to the BLOW ZONE and press BLOW!', target: 'strip', button: '.hud-blow' },
+  { id: 'buy', text: 'Step on the +3 Breath pad to buy a better bubble', target: 'bubble' },
+  { id: 'rebirth', text: 'Level up and Rebirth to unlock the 3x pad', target: 'pad', button: '.hud-tile.rebirth' },
 ]
 
 export const WANDS = [
@@ -205,4 +210,3 @@ export const ROBUX_ITEMS = {
   ],
 }
 
-export const SAVE_KEY = 'bubble-bounce.save.v1'

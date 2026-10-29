@@ -29,16 +29,15 @@ import { mulberry32 } from '../textures.js'
 const RIM = { color: new Color(TINTS.rim), power: 2.5, strength: 0.8 }
 
 // Translucent plastic-glass with a Fresnel rim injected into the standard fragment shader.
-export function createBubbleMaterial(tintHex, { opacity = 0.35, iridescence = 0.25, transmission = 0.6, rimStrength = RIM.strength } = {}) {
+// Alpha-blended, no `transmission`: that renders the whole scene again every frame a bubble is on
+// screen, which made the blow + ride lag (the bubble fills the view there).
+export function createBubbleMaterial(tintHex, { opacity = 0.35, iridescence = 0.25, rimStrength = RIM.strength } = {}) {
   const m = new MeshPhysicalMaterial({
     color: tintHex,
     transparent: true,
     opacity,
     roughness: 0.05,
     metalness: 0,
-    transmission,
-    thickness: 0.3,
-    ior: 1.2,
     clearcoat: 1,
     clearcoatRoughness: 0.05,
     iridescence,
@@ -179,28 +178,28 @@ export function createBubbleMesh(typeId, diameter = 1) {
   let main
   switch (type.shape) {
     case 'drop':
-      main = new Mesh(geo('drop', dropGeometry), createBubbleMaterial(tint, { opacity: 0.6, transmission: 0.3 }))
+      main = new Mesh(geo('drop', dropGeometry), createBubbleMaterial(tint, { opacity: 0.6 }))
       break
     case 'balloon':
-      main = new Mesh(geo('balloon', balloonGeometry), createBubbleMaterial(tint, { opacity: 0.85, transmission: 0.1, iridescence: 0 }))
+      main = new Mesh(geo('balloon', balloonGeometry), createBubbleMaterial(tint, { opacity: 0.85, iridescence: 0 }))
       break
     case 'cubeGem':
-      main = new Mesh(geo('cube', () => new BoxGeometry(0.72, 0.72, 0.72)), createBubbleMaterial(tint, { opacity: 0.6, transmission: 0.4 }))
+      main = new Mesh(geo('cube', () => new BoxGeometry(0.72, 0.72, 0.72)), createBubbleMaterial(tint, { opacity: 0.6 }))
       main.rotation.set(0.4, 0.6, 0)
       break
     case 'gem':
-      main = new Mesh(geo('gem', () => new OctahedronGeometry(0.5, 0).scale(0.8, 1, 0.8)), createBubbleMaterial(tint, { opacity: 0.6, transmission: 0.4 }))
+      main = new Mesh(geo('gem', () => new OctahedronGeometry(0.5, 0).scale(0.8, 1, 0.8)), createBubbleMaterial(tint, { opacity: 0.6 }))
       break
     case 'star':
-      main = new Mesh(geo('star', starGeometry), createBubbleMaterial(tint, { opacity: 0.42, transmission: 0.15, iridescence: 0.1, rimStrength: 0.9 }))
+      main = new Mesh(geo('star', starGeometry), createBubbleMaterial(tint, { opacity: 0.42, iridescence: 0.1, rimStrength: 0.9 }))
       break
     case 'meteor':
-      main = new Mesh(geo('meteor', meteorGeometry), createBubbleMaterial(tint, { opacity: 0.95, transmission: 0, iridescence: 0, rimStrength: 0.3 }))
+      main = new Mesh(geo('meteor', meteorGeometry), createBubbleMaterial(tint, { opacity: 0.95, iridescence: 0, rimStrength: 0.3 }))
       main.material.roughness = 0.8
       main.material.clearcoat = 0
       break
     case 'planet': {
-      main = new Mesh(geo('sphere', () => new SphereGeometry(0.45, 32, 24)), createBubbleMaterial(tint, { opacity: 0.8, transmission: 0.2 }))
+      main = new Mesh(geo('sphere', () => new SphereGeometry(0.45, 32, 24)), createBubbleMaterial(tint, { opacity: 0.8 }))
       const ring = new Mesh(geo('ring', () => new RingGeometry(0.6, 0.8, 48)), new MeshBasicMaterial({ color: '#f2e6ff', transparent: true, opacity: 0.7, side: DoubleSide, depthWrite: false }))
       ring.rotation.set(Math.PI / 2 - 0.45, 0, 0.2)
       group.add(ring)
@@ -214,7 +213,7 @@ export function createBubbleMesh(typeId, diameter = 1) {
       break
     }
     case 'galaxy': {
-      const m = createBubbleMaterial(tint, { opacity: 0.9, transmission: 0.1, iridescence: 0.4 })
+      const m = createBubbleMaterial(tint, { opacity: 0.9, iridescence: 0.4 })
       m.map = swirlTexture()
       main = new Mesh(geo('sphere', () => new SphereGeometry(0.45, 32, 24)), m)
       const ring = new Mesh(geo('galRing', () => new RingGeometry(0.62, 0.72, 48)), new MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.6, side: DoubleSide, depthWrite: false }))

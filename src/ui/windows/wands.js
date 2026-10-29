@@ -3,12 +3,13 @@ import { WANDS } from '../../config/mechanics.js'
 import { buyWand, state } from '../../state/game.js'
 import { abbreviate } from '../hud.js'
 import { check, wandArt } from '../art.js'
+import { chime, errorSound } from '../../sound.js'
 import { defineWindow, toast } from './shell.js'
 
 // Card colours, one per wand in order.
 const COLORS = ['#9da1ab', '#22c04a', '#ff4aa0', '#ffc21a', '#2fa8ff', '#ff961a', '#7a46ff', '#a43aef', '#2a2aa8', '#4a1a80']
 const SHOP = WANDS.filter((w) => !w.robux)
-const price = (n) => (n < 1e5 ? Math.round(n).toLocaleString('en-US') : abbreviate(n))
+const price = (n) => abbreviate(n)
 
 function button(w) {
   if (state.wands.equipped === w.id) return `<button class="btn green" data-act="wand" data-id="${w.id}">${check()}<span class="t">Equipped</span></button>`
@@ -45,6 +46,10 @@ defineWindow('wands', {
     const w = WANDS.find((x) => x.id === el.dataset.id)
     if (!w) return
     const owned = state.wands.owned.includes(w.id)
-    if (!buyWand(w.id) && !owned) toast(`Need ${price(Math.max(1, w.price - state.wins))} more Wins!`)
+    if (buyWand(w.id)) chime()
+    else if (!owned) {
+      errorSound()
+      toast(`Need ${price(Math.max(1, w.price - state.wins))} more Wins!`, true)
+    }
   },
 })

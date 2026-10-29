@@ -11,8 +11,10 @@ import { bush, cubeTree, daisy, dashedSquare, egg, pedestal, wandStatue } from '
 import { mulberry32 } from '../../textures.js'
 import { RAPIER, addFixed } from '../../physics.js'
 import { registerZone } from '../../interact.js'
+import { errorSound, fanfare } from '../../sound.js'
 import { buyEgg, state } from '../../state/game.js'
 import { EGGS, PETS } from '../../config/mechanics.js'
+import { abbreviate } from '../../ui/format.js'
 import { openWindow, toast } from '../../ui/windows/shell.js'
 
 const tileWhite = () => legoMaterial(WORLD.tileWhite, WORLD.tileWhiteAlt, 2)
@@ -145,11 +147,11 @@ export function buildZone({ scene, particles, floatingTexts, player, cutouts = [
   const eggColors = { gold: C.eggWhite, white: C.eggWhite, cyan: C.eggBlue, green: C.eggGreen, yellow: WORLD.gold }
   const pedColors = { gold: WORLD.gold, white: WORLD.tileWhite, cyan: C.rarePlate, green: C.pedestalGreen, yellow: WORLD.gold }
   const eggLabels = {
-    royalLion: [{ text: 'BEST IN GAME', color: '#5ad0ff', size: 0.16 }, { text: 'Royal Lion', color: '#ffd23a', size: 0.31 }, { text: 'Always 1000% Better', color: '#ff7ad9', size: 0.16 }, { text: '100,000 Wins', color: '#ffd93d', size: 0.19 }],
-    king: [{ text: 'King Egg', color: '#ff5fcf', size: 0.31 }, { text: '25,000 Wins', color: '#ffd93d', size: 0.19 }],
+    royalLion: [{ text: 'BEST IN GAME', color: '#5ad0ff', size: 0.16 }, { text: 'Royal Lion', color: '#ffd23a', size: 0.31 }, { text: 'Always 1000% Better', color: '#ff7ad9', size: 0.16 }, { text: '100K Wins', color: '#ffd93d', size: 0.19 }],
+    king: [{ text: 'King Egg', color: '#ff5fcf', size: 0.31 }, { text: '25K Wins', color: '#ffd93d', size: 0.19 }],
     common: [{ text: 'Common Egg', color: '#ffffff', size: 0.28 }, { text: '50 Wins', color: '#ffd93d', size: 0.19 }],
     uncommon: [{ text: 'Uncommon Egg', color: '#39e24a', size: 0.28 }, { text: '500 Wins', color: '#ffd93d', size: 0.19 }],
-    rare: [{ text: 'Rare Egg', color: '#5ad0ff', size: 0.28 }, { text: '4,000 Wins', color: '#ffd93d', size: 0.19 }],
+    rare: [{ text: 'Rare Egg', color: '#5ad0ff', size: 0.28 }, { text: '4K Wins', color: '#ffd93d', size: 0.19 }],
     mythic: [{ text: 'Mythic Egg', color: '#ffd23a', size: 0.28 }, { text: 'R$ 30', color: '#39e24a', size: 0.19 }],
   }
   const eggItems = []
@@ -333,16 +335,18 @@ export function buildZone({ scene, particles, floatingTexts, player, cutouts = [
       id: `egg:${e.id}`,
       instant: true,
       isNear: () => near(e.x, e.z, 2.2),
-      label: () => `Hatch ${def.name} (${def.price.toLocaleString('en-US')} Wins)`,
+      label: () => `Hatch ${def.name} (${abbreviate(def.price)} Wins)`,
       onConfirm: () => {
         const pet = buyEgg(def.id)
         const y = 2.6
         if (pet) {
+          fanfare()
           floatingTexts?.spawn('padGain', PETS[pet.type].name, e.x, y, e.z, { scale: 0.7 })
           particles.sparkle(e.x, 1.6, e.z, { count: 24, radius: 0.9, size: 0.5, life: 1, up: 0.8 })
         } else {
           const full = state.wins >= def.price
-          floatingTexts?.spawn('padGain', full ? 'Pet storage full' : `Need ${Math.max(1, def.price - state.wins).toLocaleString('en-US')} more Wins!`, e.x, y, e.z, { scale: 0.6 })
+          errorSound()
+          floatingTexts?.spawn('padFail', full ? 'Pet storage full' : `Need ${abbreviate(Math.max(1, def.price - state.wins))} more Wins!`, e.x, y, e.z, { scale: 0.6 })
         }
       },
     })

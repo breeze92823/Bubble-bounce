@@ -13,6 +13,7 @@ import { glow, neon, solidBox } from '../../propkit.js'
 import { bake } from '../../bake.js'
 import { mulberry32 } from '../../textures.js'
 import { activeBoost, addBreath, advanceTutorial, emit, equippedBubble, multiplier, on, state } from '../../state/game.js'
+import { coin } from '../../sound.js'
 
 // Per-lane look, in TRAINING.lanes order (1x, 4x, 10x, 20x, 3x, 15x, 50x).
 const LOOK = {
@@ -288,6 +289,7 @@ export function buildZone({ scene, particles, floatingTexts, inflater, player })
       busy = false
       const gain = bubble.breath * lane.mult * multiplier()
       addBreath(gain, 'train')
+      coin()
       advanceTutorial('train')
       const p = player.position
       floatingTexts.spawn('padGain', `+${fmt(activeBoost('breath2x') ? gain * 2 : gain)} Breath`, p.x, p.y + 2, p.z)

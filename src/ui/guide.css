@@ -1,0 +1,33 @@
+/* Tutorial UI arrow (guide.js): sits above the button to press, pointing down at it.
+   Over the windows (z 40) so it can point at the Rebirth window's button. */
+.tut-arrow {
+  position: fixed;
+  z-index: 65;
+  width: clamp(32px, 4vw, 46px);
+  height: clamp(43px, 5.4vw, 62px);
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.35));
+}
+.tut-arrow[hidden] {
+  display: none;
+}
+.tut-arrow svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: tut-bob 0.7s ease-in-out infinite;
+}
+@keyframes tut-bob {
+  50% {
+    transform: translateY(10px);
+  }
+}
+.tut-hl {
+  animation: tut-glow 0.9s ease-in-out infinite;
+}
+@keyframes tut-glow {
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 210, 58, 0.95), 0 0 24px 8px rgba(255, 210, 58, 0.7);
+  }
+}
