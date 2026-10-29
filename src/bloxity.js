@@ -339,6 +339,19 @@ export function updateRoom(roomId) {
   }
 }
 
+// Tells the portal who is in the room (it shows the join toasts and who is here). `already` = they
+// were there when we joined (playerInRoom), else they came after us (playerJoined).
+export function reportPlayer(username, already) {
+  if (!username) return
+  try {
+    const game = sdk()?.game
+    if (already) game?.playerInRoom?.(username)
+    else game?.playerJoined?.(username)
+  } catch {
+    // Ignore.
+  }
+}
+
 // --- Portal -----------------------------------------------------------
 export function showMenu() {
   try {

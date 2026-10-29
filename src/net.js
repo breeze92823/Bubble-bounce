@@ -9,10 +9,10 @@
 // that session's progress along (noProgress keeps the current state); an account that has a save
 // loads it instead.
 // Never throws and never blocks play: without a server the game just runs unsaved.
-import { Client } from '@colyseus/sdk'
+import { Callbacks, Client } from '@colyseus/sdk'
 import { DEV_MODE, NET, SERVER_URL } from './config.js'
 import { hydrate, snapshot } from './state/game.js'
-import { authState, canResolveServer, getPfp, launchRoomId, locateRoom, resolveServerEndpoint, subscribeAuth, updateRoom } from './bloxity.js'
+import { authState, canResolveServer, getPfp, launchRoomId, locateRoom, reportPlayer, resolveServerEndpoint, subscribeAuth, updateRoom } from './bloxity.js'
 
 export const net = { room: null, connected: false, hydrated: false, leaderboard: null }
 
@@ -87,6 +87,20 @@ export function setLook(look) {
   if (net.connected) send('look', look)
 }
 
+// Tells the Bloxity menu who else is in this room: the roster present at the first state sync is
+// "already there" (playerInRoom), later arrivals "joined" (playerJoined).
+function reportRoster(room) {
+  try {
+    let synced = false
+    room.onStateChange.once(() => (synced = true))
+    Callbacks.get(room).onAdd('players', (player, sessionId) => {
+      if (sessionId !== room.sessionId) reportPlayer(player.username, !synced)
+    })
+  } catch (err) {
+    console.warn('[net] could not watch the roster', err)
+  }
+}
+
 function attach(room) {
   net.room = room
   net.connected = true
@@ -110,6 +124,7 @@ function attach(room) {
     console.warn('[net] server could not read the saved progress; saving is off for this session')
   })
   if (myLook) send('look', myLook)
+  reportRoster(room)
   room.onMessage('pose', (msg) => remote.pose?.(msg))
   room.onMessage('look', (msg) => remote.look?.(msg))
   room.onMessage('playerLeft', (msg) => remote.remove?.(msg?.id))
