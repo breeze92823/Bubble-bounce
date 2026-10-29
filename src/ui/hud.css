@@ -1,0 +1,512 @@
+/* Main HUD (hud.js), laid out after Reference-Screenshots ui-overlay (1920x991).
+   Every size is in reference pixels times --s, the scale hud.js sets from the window. */
+.hud {
+  --s: 1;
+  --pad: calc(14px * var(--s));
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --res-top: 0px; /* height of a full-width Boxity toolbar (narrow phones) */
+  --res-left: 0px; /* bottom of the Boxity toolbar + chat feed in the top-left corner */
+  --right-top: 0px; /* room kept free under the top-right icons (touch buttons) */
+  --right-bottom: 0px; /* room kept free over the bottom-right corner (touch cluster) */
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  font-family: 'Fredoka', system-ui, sans-serif;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+}
+.hud * {
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.hud button {
+  pointer-events: auto;
+  touch-action: manipulation;
+  font: inherit;
+  color: inherit;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.08s;
+}
+.hud button:active {
+  transform: scale(0.94);
+}
+
+/* Cartoon outlined text: thick dark stroke drawn under the fill, plus a drop. */
+:is(.hud, .win-layer, .ui-toast) .t, .ui-toast.t {
+  -webkit-text-stroke: calc(7px * var(--s)) #111;
+  paint-order: stroke fill;
+  text-shadow: 0 calc(3px * var(--s)) 0 rgba(0, 0, 0, 0.55);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+:is(.hud, .win-layer) .t.thin {
+  -webkit-text-stroke-width: calc(5px * var(--s));
+}
+:is(.hud, .win-layer) .emoji {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  font-weight: 400;
+  filter: drop-shadow(0 calc(3px * var(--s)) 0 rgba(0, 0, 0, 0.45));
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+}
+
+
+
+/* --- Top right: daily rewards calendar ------------------------------------------- */
+.hud-topright {
+  position: absolute;
+  top: calc(var(--safe-t) + var(--res-top) + 14px * var(--s));
+  right: calc(var(--safe-r) + 14px * var(--s) + var(--right-icons, 0px));
+  display: flex;
+  gap: calc(14px * var(--s));
+}
+.hud-round {
+  width: calc(56px * var(--s));
+  height: calc(56px * var(--s));
+  border-radius: 50%;
+  border: none;
+  background: rgba(20, 20, 24, 0.82);
+  font-size: calc(32px * var(--s));
+  display: grid;
+  place-items: center;
+}
+
+/* --- Left column: goal + 3x2 buttons ------------------------------------------- */
+.hud-left {
+  position: absolute;
+  left: calc(var(--safe-l) + 12px * var(--s));
+  top: calc(var(--safe-t) + var(--res-left) + 4px * var(--s));
+  display: flex;
+  flex-direction: column;
+  gap: calc(12px * var(--s));
+}
+.hud-goal {
+  position: relative;
+  width: calc(110px * var(--s));
+  height: calc(106px * var(--s));
+  margin-top: calc(24px * var(--s));
+  border-radius: calc(14px * var(--s));
+  border: calc(4px * var(--s)) solid #111;
+  background: linear-gradient(#3a3f4f, #23262f);
+  box-shadow: inset 0 0 0 calc(3px * var(--s)) #8a6a1e;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(6px * var(--s));
+}
+.hud-goal .head {
+  position: absolute;
+  top: calc(-28px * var(--s));
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: calc(27px * var(--s));
+  color: #ffd43a;
+}
+.hud-goal .egg {
+  width: calc(42px * var(--s));
+  height: calc(52px * var(--s));
+  border-radius: 50% 50% 50% 50% / 58% 58% 42% 42%;
+  background: radial-gradient(circle at 35% 28%, #c9ecff 0 10%, #3fa3ff 34%, #0d55d6 90%);
+  box-shadow: 0 0 0 calc(2.5px * var(--s)) #0b1d4a;
+}
+.hud-goal .count {
+  font-size: calc(27px * var(--s));
+}
+.hud-grid {
+  display: grid;
+  grid-template-columns: repeat(2, calc(110px * var(--s)));
+  grid-auto-rows: calc(110px * var(--s));
+  gap: calc(12px * var(--s));
+}
+.hud-tile {
+  border-radius: calc(14px * var(--s));
+  border: calc(4px * var(--s)) solid #111;
+  box-shadow: inset 0 0 0 calc(3px * var(--s)) var(--rim, #2f6b3a), inset 0 calc(6px * var(--s)) 0 rgba(255, 255, 255, 0.12);
+  background: linear-gradient(var(--a, #3a3f4f), var(--b, #23262f));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: calc(6px * var(--s));
+}
+.hud-tile .emoji {
+  font-size: calc(54px * var(--s));
+  margin-bottom: calc(2px * var(--s));
+}
+.hud-tile .lbl {
+  font-size: calc(26px * var(--s));
+}
+.hud-tile .lbl.small {
+  font-size: calc(21px * var(--s));
+}
+.hud-tile.rebirth { --a: #4a2633; --b: #2a1520; --rim: #9a7a24; }
+.hud-tile.pets { --a: #2f3c55; --b: #1c2333; --rim: #2f6b3a; }
+.hud-tile.wands { --a: #3a2a5a; --b: #221737; --rim: #3d5bb0; }
+.hud-tile.inventory { --a: #2f3c55; --b: #1c2333; --rim: #2f6b3a; }
+.hud-tile.gifts { --a: #4a2633; --b: #2a1520; --rim: #9a7a24; }
+.hud-tile .pct {
+  position: absolute;
+  top: calc(-14px * var(--s));
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: calc(26px * var(--s));
+}
+.hud-tile .alert {
+  position: absolute;
+  top: calc(-14px * var(--s));
+  right: calc(-16px * var(--s));
+  width: calc(40px * var(--s));
+  height: calc(40px * var(--s));
+  border-radius: 50%;
+  background: #e8212f;
+  border: calc(3px * var(--s)) solid #fff;
+  display: grid;
+  place-items: center;
+  font-size: calc(24px * var(--s));
+}
+.hud-tile .alert[hidden] {
+  display: none;
+}
+
+/* --- Bottom left: rebirths, wins, friend boost ------------------------------------ */
+.hud-stats {
+  position: absolute;
+  left: calc(var(--safe-l) + 16px * var(--s));
+  bottom: calc(var(--safe-b) + 14px * var(--s));
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+}
+.hud-stats .row {
+  display: flex;
+  align-items: center;
+  gap: calc(10px * var(--s));
+}
+.hud-stats .rebirths .emoji {
+  font-size: calc(40px * var(--s));
+}
+.hud-stats .rebirths .t {
+  font-size: calc(40px * var(--s));
+}
+.hud-stats .wins .emoji {
+  font-size: calc(50px * var(--s));
+}
+.hud-stats .wins .t {
+  font-size: calc(46px * var(--s));
+  color: #ffd43a;
+}
+.hud-stats .friend .t {
+  font-size: calc(31px * var(--s));
+}
+
+/* --- Bottom centre: breath, multiplier, level bar, breath packs ---------------- */
+.hud-center {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--safe-b) + 14px * var(--s));
+  width: calc(740px * var(--s));
+  margin-left: calc(-370px * var(--s));
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+}
+.hud-center .top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 calc(4px * var(--s));
+}
+.hud-center .breath {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--s));
+  font-size: calc(30px * var(--s));
+  color: #ffd43a;
+}
+.hud-center .breath .emoji {
+  font-size: calc(38px * var(--s));
+}
+.hud-center .mult {
+  font-size: calc(30px * var(--s));
+  color: #ffd43a;
+}
+.hud-level {
+  position: relative;
+  height: calc(66px * var(--s));
+  border-radius: calc(12px * var(--s));
+  border: calc(4px * var(--s)) solid #111;
+  background: #e9edf4;
+  overflow: hidden;
+  box-shadow: 0 calc(4px * var(--s)) 0 rgba(0, 0, 0, 0.35);
+}
+.hud-level .fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  background: linear-gradient(#6a9cff, #3c6fe0 55%, #2b55c9);
+  box-shadow: inset 0 calc(3px * var(--s)) 0 rgba(255, 255, 255, 0.35);
+  transition: width 0.25s;
+}
+.hud-level .lvl {
+  position: absolute;
+  left: calc(20px * var(--s));
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: calc(38px * var(--s));
+}
+.hud-level .xp {
+  position: absolute;
+  right: calc(20px * var(--s));
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: calc(27px * var(--s));
+}
+
+/* --- Right column: pro pack, boosts, spin ---------------------------------------- */
+.hud-right {
+  position: absolute;
+  right: calc(var(--safe-r) + 10px * var(--s));
+  top: calc(var(--safe-t) + max(var(--right-top), var(--res-top)) + 200px * var(--s));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(12px * var(--s));
+}
+.hud-spin {
+  width: calc(192px * var(--s));
+  height: calc(82px * var(--s));
+  border-radius: calc(12px * var(--s));
+  border: calc(4px * var(--s)) solid #111;
+  box-shadow: inset 0 0 0 calc(3px * var(--s)) #b88a2a;
+  background: linear-gradient(#3e3530, #241e1a);
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--s));
+  padding: 0 calc(8px * var(--s));
+}
+.hud-spin .wheel {
+  width: calc(58px * var(--s));
+  height: calc(58px * var(--s));
+  border-radius: 50%;
+  flex: none;
+  border: calc(3px * var(--s)) solid #111;
+  background: conic-gradient(#ff5a5a 0 45deg, #ffb340 0 90deg, #ffe45a 0 135deg, #5ad86a 0 180deg, #4ac8ff 0 225deg, #5a7aff 0 270deg, #b05aff 0 315deg, #ff5ab8 0);
+}
+.hud-spin.ready .wheel {
+  animation: hud-spin 3s linear infinite;
+}
+@keyframes hud-spin {
+  to { transform: rotate(360deg); }
+}
+.hud-spin .col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  gap: calc(4px * var(--s));
+}
+.hud-spin .title {
+  font-size: calc(32px * var(--s));
+}
+.hud-spin .time {
+  font-size: calc(22px * var(--s));
+  color: #ffd43a;
+}
+
+/* Portrait phones: the bar takes the full width, the stats sit over it. */
+.hud.portrait .hud-center {
+  left: calc(var(--safe-l) + 8px);
+  right: calc(var(--safe-r) + 8px);
+  width: auto;
+  margin-left: 0;
+}
+/* The bar sits over the touch thumb controls, the stats over the bar. */
+.hud.portrait .hud-center {
+  bottom: calc(var(--safe-b) + var(--right-bottom) + 6px);
+}
+/* Right-column spin button sits over the bar on the right; keep clear. */
+.hud.portrait .hud-stats {
+  bottom: calc(var(--safe-b) + var(--right-bottom) + 130px * var(--s));
+}
+
+/* Short screens (phone landscape, hud.js sets .short): goal beside the grid, stats beside
+   it at the bottom. */
+.hud.short .hud-left {
+  flex-direction: row;
+  align-items: flex-start;
+}
+.hud.short .hud-goal {
+  order: 2;
+}
+.hud.short .hud-stats {
+  left: calc(var(--safe-l) + 260px * var(--s));
+}
+.hud.short .hud-right {
+  top: calc(var(--safe-t) + max(var(--right-top), var(--res-top)) + 80px * var(--s));
+}
+
+/* Narrow portrait: the calendar drops under the touch buttons. */
+.hud.portrait .hud-topright {
+  top: calc(var(--safe-t) + max(var(--right-top), var(--res-top)) + 8px * var(--s));
+  right: calc(var(--safe-r) + 14px * var(--s));
+}
+
+/* --- Objective banner (tutorial), top centre ---------------------------------------- */
+.hud-objective {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(var(--safe-t) + var(--res-top) + 16px * var(--s));
+  max-width: min(70vw, calc(900px * var(--s)));
+  padding: calc(10px * var(--s)) calc(22px * var(--s));
+  border-radius: calc(14px * var(--s));
+  background: rgba(20, 30, 60, 0.55);
+  font-size: calc(28px * var(--s));
+  color: #fff;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.15;
+}
+.hud.portrait .hud-objective {
+  top: calc(var(--safe-t) + max(var(--right-top), var(--res-top)) + 70px * var(--s));
+  max-width: calc(100vw - 32px);
+  font-size: max(13px, calc(28px * var(--s)));
+}
+
+/* --- BLOW button, shown on the Blow Zone strip (blow-zone-strip_01) ------------------ */
+.hud .hud-blow { /* .hud: beats `.hud button { position: relative }` */
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--safe-b) + 190px * var(--s));
+  width: calc(380px * var(--s));
+  min-width: 160px;
+  translate: -50% 0; /* separate from `transform`, which the :active press uses */
+  padding: calc(14px * var(--s)) calc(10px * var(--s));
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(6px * var(--s));
+  background: #2fbf4f;
+  border: calc(4px * var(--s)) solid #1f8a38;
+  border-radius: calc(16px * var(--s));
+  box-shadow: 0 calc(6px * var(--s)) 0 #1f8a38;
+  animation: hud-blow-pulse 1.2s ease-in-out infinite;
+}
+.hud-blow[hidden] {
+  display: none;
+}
+.hud-blow .big {
+  font-size: max(26px, calc(56px * var(--s)));
+}
+.hud-blow .sub {
+  font-size: max(11px, calc(24px * var(--s)));
+}
+.hud.portrait .hud-blow { /* over the stats + event line, which sit 130 ref px above the bar */
+  bottom: calc(var(--safe-b) + var(--right-bottom) + 130px * var(--s) + 70px);
+}
+@keyframes hud-blow-pulse {
+  50% { scale: 1.05; }
+}
+
+/* --- Ride distance counter (bubble-ride-lane_*) ------------------------------------- */
+.hud-distance {
+  display: none;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(var(--safe-t) + var(--res-top) + 80px * var(--s));
+  font-size: max(34px, calc(90px * var(--s)));
+  -webkit-text-stroke-width: max(4px, calc(10px * var(--s))) !important;
+}
+
+/* --- HUD states (hud.js hudMode) ------------------------------------------------------- */
+.hud.mode-cinematic > *,
+.hud.mode-reward > * {
+  display: none !important;
+}
+.hud.mode-ride > :is(.hud-left, .hud-right, .hud-topright, .hud-objective, .hud-blow) {
+  display: none !important;
+}
+.hud.mode-ride .hud-distance {
+  display: block;
+}
+body.scripted .touch-root {
+  display: none !important;
+}
+
+/* --- Black fade + Wins card after a burst (burst-and-rewards_02) --------------------- */
+.reward-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  background: #000;
+  opacity: 0;
+  transition-property: opacity;
+  transition-timing-function: linear;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Fredoka', system-ui, sans-serif;
+  font-weight: 700;
+  color: #fff;
+}
+.reward-layer.dark {
+  opacity: 1;
+}
+.reward-layer .t {
+  -webkit-text-stroke: clamp(3px, 0.35vw, 6px) #111;
+  paint-order: stroke fill;
+  white-space: nowrap;
+}
+.reward-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(6px, 1.2vh, 14px);
+  margin-top: -14vh;
+}
+.reward-card[hidden] {
+  display: none;
+}
+.reward-card.pop {
+  animation: reward-pop 0.25s ease-out;
+}
+.reward-card .row {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1.5vw, 24px);
+}
+.reward-card .trophy {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  font-size: clamp(56px, 11vh, 110px);
+}
+.reward-card .amount {
+  font-size: clamp(48px, 9vh, 90px);
+  color: #ffcc1e;
+}
+.reward-card .meters {
+  font-size: clamp(20px, 3.5vh, 34px);
+}
+.reward-card .best {
+  font-size: clamp(22px, 4vh, 40px);
+  color: #4affd9;
+}
+@keyframes reward-pop {
+  from { transform: scale(0.8); }
+  to { transform: scale(1); }
+}
