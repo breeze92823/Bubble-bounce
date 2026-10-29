@@ -31,7 +31,10 @@ function storedId(key, make) {
 }
 const rand = () => Math.random().toString(36).slice(2, 8)
 const GUEST = storedId('bubble-bounce.guest', () => `guest-${rand()}`)
-const DEV = DEV_MODE ? storedId('bubble-bounce.dev', () => `dev-${rand()}`) : ''
+// `?player=b` gives a second tab its own dev id: the server evicts a second session on the same
+// account, so two tabs of one browser (same stored id) would kick each other out.
+const asPlayer = DEV_MODE ? new URLSearchParams(location.search).get('player')?.replace(/[^\w-]/g, '').slice(0, 24) : ''
+const DEV = DEV_MODE ? (asPlayer ? `dev-${asPlayer}` : storedId('bubble-bounce.dev', () => `dev-${rand()}`)) : ''
 
 function identity() {
   if (DEV) return { userId: DEV, username: `Dev ${DEV.slice(4)}` }
@@ -68,6 +71,15 @@ export function saveNow() {
 
 // --- Connection -------------------------------------------------------------------
 let onLeaderboard = () => {}
+const remote = {} // { pose(msg), remove(id), clear() } set by onRemotePlayers
+export function onRemotePlayers(handlers) {
+  Object.assign(remote, handlers)
+}
+// The local player's live look for the others in the room (backend sanitizePose.ts).
+export function sendPose(pose) {
+  if (net.connected) send('pose', pose)
+}
+
 function attach(room) {
   net.room = room
   net.connected = true
@@ -90,6 +102,8 @@ function attach(room) {
     net.hydrated = false
     console.warn('[net] server could not read the saved progress; saving is off for this session')
   })
+  room.onMessage('pose', (msg) => remote.pose?.(msg))
+  room.onMessage('playerLeft', (msg) => remote.remove?.(msg?.id))
   room.onMessage('leaderboard', (data) => {
     net.leaderboard = data
     onLeaderboard(data)
@@ -99,6 +113,7 @@ function attach(room) {
     net.room = null
     net.connected = false
     net.hydrated = false
+    remote.clear?.() // the others are gone with the room
     updateRoom('')
     setTimeout(connect, NET.rejoin * 1000)
   })

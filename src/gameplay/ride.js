@@ -307,6 +307,9 @@ export function createRide({ scene, player, particles, floatingTexts, inflater, 
     get active() {
       return phase !== 'idle'
     },
+    get bubble() {
+      return mesh // the ride bubble once the inflate hands it over, else null
+    },
     get ownsAvatar() {
       return owns
     },

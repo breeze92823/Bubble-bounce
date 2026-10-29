@@ -15,6 +15,8 @@ export const NET = {
   rejoin: 2, // s before reconnecting after the connection drops
   retry: 3, // s before the first connection retry, doubling up to retryMax
   retryMax: 30,
+  poseEvery: 0.1, // s between pose messages (position, animation, bubble) to the other players
+  remoteTimeout: 8, // s without a pose before another player is dropped
 }
 
 // --- World -------------------------------------------------------------------------

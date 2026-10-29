@@ -1,5 +1,5 @@
 import { NeutralToneMapping, Clock, Group, PCFSoftShadowMap, PerspectiveCamera, Scene, SRGBColorSpace, Vector3, WebGLRenderer } from 'three'
-import { CAMERA, graphicsPreset, RENDER } from './config.js'
+import { CAMERA, graphicsPreset, NET, RENDER } from './config.js'
 import * as bloxity from './bloxity.js'
 import { install as installInput, onKey } from './input.js'
 import { installTouch } from './touch.js'
@@ -28,7 +28,8 @@ import { installHud } from './ui/hud.js'
 import { createGuide } from './ui/guide.js'
 import { installAllWindows } from './ui/windows/index.js'
 import { isOpen as anyWindowOpen } from './ui/windows/shell.js'
-import { initNet, onLeaderboardData } from './net.js'
+import { initNet, onLeaderboardData, onRemotePlayers, sendPose } from './net.js'
+import { createRemotePlayers } from './remotePlayers.js'
 import { installSound } from './sound.js'
 import { installInteract,setInteractEnabled, updateInteract } from './interact.js'
 
@@ -152,6 +153,8 @@ const director = createDirector()
 const ride = createRide({ scene, player, particles, floatingTexts, inflater, director, animator: () => animator })
 const world = buildWorld(scene, { particles, floatingTexts, inflater, player, ride }) // the zones
 onLeaderboardData(world.zones['spawn-hub'].setLeaderboard)
+const remotePlayers = createRemotePlayers({ scene, particles })
+onRemotePlayers({ pose: remotePlayers.pose, remove: remotePlayers.remove, clear: remotePlayers.clear })
 createPlayerBody()
 syncYawToPlayer()
 
@@ -241,6 +244,27 @@ const clock = new Clock()
 let shownLoading = true
 let readySince = 0
 let elapsed = 0
+let poseIn = 0
+
+// What the other players see of us: where we stand, how the avatar moves, and the live bubble.
+function pose() {
+  const own = ride.ownsAvatar
+  const a = ride.avatar
+  const p = player.renderPosition
+  const m = ride.bubble || inflater.mesh
+  return {
+    x: own ? a.x : p.x,
+    y: own ? a.y : p.y,
+    z: own ? a.z : p.z,
+    f: own ? a.facing : player.facing,
+    sp: own ? 0 : Math.hypot(player.velocity.x, player.velocity.z),
+    g: own ? ride.anim.grounded : player.grounded,
+    vy: own ? ride.anim.verticalVelocity : player.velocity.y,
+    o: animator?.override ?? '',
+    s: own ? a.scale : 1,
+    b: m ? { t: m.userData.type.id, x: m.position.x, y: m.position.y, z: m.position.z, sx: m.scale.x, sy: m.scale.y, ry: m.rotation.y } : null,
+  }
+}
 
 function frame(dt) {
   elapsed += dt
@@ -272,6 +296,11 @@ function frame(dt) {
   wand.atMouth = animator?.override === 'blow'
   wand.update() // keeps posing while hidden so the bubble ring is current when a blow starts
   inflater.update(dt)
+  remotePlayers.update(dt)
+  if ((poseIn -= dt) <= 0) {
+    poseIn = NET.poseEvery
+    sendPose(pose())
+  }
   wand.wand.visible = !!wand.upper && inflater.active // the wand is only in hand while blowing
 
   if (director.active) director.update(camera, dt)
@@ -311,5 +340,5 @@ if (import.meta.env.DEV) {
   const step = (n = 1, dt = 1 / 60) => {
     for (let i = 0; i < n; i++) frame(dt)
   }
-  window.__game = { player, scene, renderer, camera, renderCamera, postfx, bodies: bodyCount, toggleMode, teleport, step, world, environment, lighting, ride, director, inflater, state, wand, guide }
+  window.__game = { player, scene, renderer, camera, renderCamera, postfx, bodies: bodyCount, toggleMode, teleport, step, world, environment, lighting, ride, director, inflater, state, wand, guide, remotePlayers }
 }
