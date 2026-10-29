@@ -168,6 +168,16 @@ export const CAMERA = {
 // --- Bloxity (bloxity.js, avatar/) -------------------------------------------------
 // SDK setting keys this game listens for; registering a listener makes the control
 // appear in the portal's settings menu.
+// Boxity's own leaderboards (game page + the trophy button in Boxity's toolbar), declared by
+// bloxity.js on boot; the backend reports the scores (boxityBoards.ts, same list in its
+// constants.ts BOXITY_BOARDS). Ids are permanent; the first declaration fixes the settings.
+export const BOXITY_BOARDS = [
+  { id: 'wins', label: 'Wins', mode: 'latest', format: 'compact', reset: 'none' },
+  { id: 'rebirths', label: 'Rebirths', mode: 'best', format: 'number', reset: 'none' },
+  { id: 'breath', label: 'Breath', mode: 'latest', format: 'compact', reset: 'none' },
+  { id: 'distance', label: 'Best Distance (m)', mode: 'best', format: 'number', reset: 'none' },
+]
+
 export const SETTINGS = {
   graphics_quality: { def: DEFAULT_GRAPHICS, type: 'enum', values: ['Low', 'Medium', 'High', 'Ultra'] },
   camera_sensitivity: { def: '1', type: 'number', min: 0.1, max: 5 },

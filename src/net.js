@@ -12,7 +12,7 @@
 import { Client } from '@colyseus/sdk'
 import { DEV_MODE, NET, SERVER_URL } from './config.js'
 import { hydrate, snapshot } from './state/game.js'
-import { authState, canResolveServer, getPfp, resolveServerEndpoint, subscribeAuth } from './bloxity.js'
+import { authState, canResolveServer, getPfp, launchRoomId, locateRoom, resolveServerEndpoint, subscribeAuth, updateRoom } from './bloxity.js'
 
 export const net = { room: null, connected: false, hydrated: false, leaderboard: null }
 
@@ -99,14 +99,32 @@ function attach(room) {
     net.room = null
     net.connected = false
     net.hydrated = false
+    updateRoom('')
     setTimeout(connect, NET.rejoin * 1000)
   })
 }
 
+// The room a friend invite / the game page's Join button opened this page with: used once, and
+// matchmaking takes over when it is gone or full.
+let launchRoom = launchRoomId()
+async function joinLaunchRoom(options) {
+  const id = launchRoom
+  launchRoom = ''
+  if (!id) return null
+  try {
+    if (SERVER_URL) return { room: await new Client(SERVER_URL).joinById(id.split('~').pop(), options), relay: '' }
+    const at = await locateRoom(id)
+    if (at) return { room: await new Client(at.endpoint).joinById(at.roomId, options), relay: at.relayRoomId }
+  } catch (err) {
+    console.info('[net] the invited room is gone or full; matchmaking instead', err?.message ?? err)
+  }
+  return null
+}
+
 async function joinAnyRoom(options) {
-  if (SERVER_URL) return new Client(SERVER_URL).joinOrCreate('world', options)
-  const { endpoint } = await resolveServerEndpoint(/^(guest|dev)-/.test(options.userId) ? undefined : options.userId)
-  return new Client(endpoint).joinOrCreate('world', options)
+  if (SERVER_URL) return { room: await new Client(SERVER_URL).joinOrCreate('world', options), relay: '' }
+  const { endpoint, relayRoomId } = await resolveServerEndpoint(/^(guest|dev)-/.test(options.userId) ? undefined : options.userId)
+  return { room: await new Client(endpoint).joinOrCreate('world', options), relay: relayRoomId }
 }
 
 let connecting = false
@@ -117,9 +135,11 @@ async function connect() {
   try {
     const id = identity()
     sentId = id.userId
-    const room = await joinAnyRoom({ ...id, pfp: getPfp() })
+    const options = { ...id, pfp: getPfp() }
+    const { room, relay } = (await joinLaunchRoom(options)) ?? (await joinAnyRoom(options))
     retryIn = NET.retry
     attach(room)
+    updateRoom(relay ? `${relay}~${room.roomId}` : room.roomId) // friend invites land in this room
   } catch (err) {
     console.info(`[net] could not reach the server (retrying in ${retryIn}s); playing unsaved`, err?.message ?? err)
     setTimeout(connect, retryIn * 1000)
@@ -133,6 +153,12 @@ async function connect() {
 setInterval(() => {
   if (!document.hidden && performance.now() - savedAt >= NET.saveEvery * 1000) saveNow()
 }, 1000)
+
+// Late subscriber (the world is built after initNet): replays the last message received.
+export function onLeaderboardData(fn) {
+  onLeaderboard = fn
+  if (net.leaderboard) fn(net.leaderboard)
+}
 
 // setLeaderboard(data): { boards: { rebirths|wins|breath|bestDistance: [{ name, value }] }, ranks }.
 export function initNet({ setLeaderboard } = {}) {

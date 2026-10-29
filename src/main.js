@@ -28,7 +28,7 @@ import { installHud } from './ui/hud.js'
 import { createGuide } from './ui/guide.js'
 import { installAllWindows } from './ui/windows/index.js'
 import { isOpen as anyWindowOpen } from './ui/windows/shell.js'
-import { initNet } from './net.js'
+import { initNet, onLeaderboardData } from './net.js'
 import { installSound } from './sound.js'
 import { installInteract,setInteractEnabled, updateInteract } from './interact.js'
 
@@ -151,6 +151,7 @@ const inflater = createInflater({
 const director = createDirector()
 const ride = createRide({ scene, player, particles, floatingTexts, inflater, director, animator: () => animator })
 const world = buildWorld(scene, { particles, floatingTexts, inflater, player, ride }) // the zones
+onLeaderboardData(world.zones['spawn-hub'].setLeaderboard)
 createPlayerBody()
 syncYawToPlayer()
 

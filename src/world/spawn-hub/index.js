@@ -14,39 +14,53 @@ import { registerZone } from '../../interact.js'
 import { errorSound, fanfare } from '../../sound.js'
 import { buyEgg, state } from '../../state/game.js'
 import { EGGS, PETS } from '../../config/mechanics.js'
-import { abbreviate } from '../../ui/format.js'
+import { abbreviate, commas } from '../../ui/format.js'
 import { openWindow, toast } from '../../ui/windows/shell.js'
 
 const tileWhite = () => legoMaterial(WORLD.tileWhite, WORLD.tileWhiteAlt, 2)
 
-// Leaderboard face: green board, 10 rows (rank + name | value), "YOUR RANK" footer.
-function paintBoard(rows) {
+// Leaderboard face: green board, 10 rows (rank + name | value), "YOUR RANK" footer. Repainted
+// in place whenever the backend sends a fresh `leaderboard` message (see setLeaderboard).
+function createBoardFace() {
   const c = document.createElement('canvas')
   c.width = 512
   c.height = 480
-  const ctx = c.getContext('2d')
-  ctx.fillStyle = C.board
-  ctx.fillRect(0, 0, c.width, c.height)
-  ctx.font = '600 30px Fredoka, "Arial Black", sans-serif'
-  ctx.textBaseline = 'middle'
-  rows.forEach(([name, value], i) => {
-    const y = 28 + i * 40
-    ctx.fillStyle = i % 2 ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.06)'
-    ctx.fillRect(12, y - 18, c.width - 24, 36)
-    ctx.fillStyle = i < 3 ? '#ffd93d' : '#ffffff'
-    ctx.textAlign = 'left'
-    ctx.fillText(name, 24, y)
-    ctx.textAlign = 'right'
-    ctx.fillText(value, c.width - 24, y)
-  })
-  ctx.fillStyle = '#9fe0ff'
-  ctx.textAlign = 'center'
-  ctx.fillText('YOUR RANK  -', c.width / 2, 452)
   const tex = new CanvasTexture(c)
   tex.colorSpace = SRGBColorSpace
   tex.repeat.x = -1 // the scene is mirrored in X at render time (main.js)
   tex.offset.x = 1
-  return new MeshBasicMaterial({ map: tex })
+  const paint = (rows, rank, format) => {
+    const ctx = c.getContext('2d')
+    ctx.fillStyle = C.board
+    ctx.fillRect(0, 0, c.width, c.height)
+    ctx.font = '600 30px Fredoka, "Arial Black", sans-serif'
+    ctx.textBaseline = 'middle'
+    if (!rows) {
+      ctx.fillStyle = '#ffffff'
+      ctx.textAlign = 'center'
+      ctx.fillText('Loading...', c.width / 2, 220)
+    } else if (!rows.length) {
+      ctx.fillStyle = '#ffffff'
+      ctx.textAlign = 'center'
+      ctx.fillText('No players yet', c.width / 2, 220)
+    }
+    ;(rows || []).slice(0, 10).forEach((r, i) => {
+      const y = 28 + i * 40
+      ctx.fillStyle = i % 2 ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.06)'
+      ctx.fillRect(12, y - 18, c.width - 24, 36)
+      ctx.fillStyle = i < 3 ? '#ffd93d' : '#ffffff'
+      ctx.textAlign = 'left'
+      ctx.fillText(`${i + 1}. ${String(r.name).slice(0, 14)}`, 24, y)
+      ctx.textAlign = 'right'
+      ctx.fillText(format(r.value), c.width - 24, y)
+    })
+    ctx.fillStyle = '#9fe0ff'
+    ctx.textAlign = 'center'
+    ctx.fillText(rank ? `YOUR RANK  #${commas(rank)}` : 'YOUR RANK  -', c.width / 2, 452)
+    tex.needsUpdate = true
+  }
+  paint(null, null, String)
+  return { material: new MeshBasicMaterial({ map: tex }), paint }
 }
 const grass = () => legoMaterial(WORLD.grassA, WORLD.grassB, 2)
 
@@ -247,20 +261,26 @@ export function buildZone({ scene, particles, floatingTexts, player, cutouts = [
 
   // --- Leaderboards: painted green boards in gold frames on green bases, titles floating above.
   const lb = HUB.leaderboards
-  const titles = ['Top Wins', 'Top Robux Spent', 'Top Time Played', 'Top Level']
+  // Left to right as the player faces the boards; stats are the backend's LEADERBOARD_STATS.
+  const boardDefs = [
+    { title: 'Top Wins', stat: 'wins', format: abbreviate },
+    { title: 'Top Rebirths', stat: 'rebirths', format: commas },
+    { title: 'Top Breath', stat: 'breath', format: abbreviate },
+    { title: 'Top Distance', stat: 'bestDistance', format: (v) => `${abbreviate(v)}M` },
+  ]
   const frameMat = glossy(C.boardFrame)
-  const names = ['bubbleKing', 'shnyeyi', 'esth9er', 'Mavie_123', 'popz', 'xXairXx', 'soapy', 'nova_7', 'driftr', 'kai']
-  titles.forEach((title, i) => {
+  const boardFaces = boardDefs.map((def, i) => {
     const x = lb.xs[i]
-    const face = paintBoard(names.map((n, r) => [`${r + 1}. ${names[(r + i * 3) % names.length]}`, Math.round(900000 / (r + 1) ** 1.6 / 10 ** (i % 2)).toLocaleString()]))
+    const { material: face, paint } = createBoardFace()
     const board = put(statics, new BoxGeometry(lb.w, lb.h, 0.2), [plastic(C.board), plastic(C.board), plastic(C.board), plastic(C.board), face, plastic(C.board)], x, lb.y + lb.h / 2, lb.z)
     put(statics, new BoxGeometry(lb.w + 0.3, 0.14, 0.3), frameMat, x, lb.y + lb.h + 0.07, lb.z)
     put(statics, new BoxGeometry(lb.w + 0.3, 0.14, 0.3), frameMat, x, lb.y - 0.07, lb.z)
     for (const sx of [-1, 1]) put(statics, new BoxGeometry(0.14, lb.h + 0.28, 0.3), frameMat, x + sx * (lb.w / 2 + 0.07), lb.y + lb.h / 2, lb.z)
     put(statics, new BoxGeometry(lb.w - 0.4, lb.y, 0.6), legoMaterial(C.board, C.board, 1, { studStrength: 0.4 }), x, lb.y / 2, lb.z)
-    const t = floatingLabel([{ text: title, color: '#ffffff', size: 0.3 }])
+    const t = floatingLabel([{ text: def.title, color: '#ffffff', size: 0.3 }])
     t.position.set(x, lb.y + lb.h + 0.25, lb.z)
     group.add(t)
+    return { def, paint }
   })
   solidBox((lb.xs[0] - lb.xs[3] + lb.w) / 2, lb.h / 2 + 0.5, 0.4, 0, lb.h / 2 + 0.5, lb.z)
 
@@ -367,9 +387,15 @@ export function buildZone({ scene, particles, floatingTexts, player, cutouts = [
   particles.ambientSpawner(pr.x, 2.5, pr.z, 4, 0.3)
   particles.ambientSpawner(0, 2.5, 13, 5, 0.25)
 
+  // Backend `leaderboard` message: { boards: { stat: [{ name, value }] }, ranks: { stat: n | null } }.
+  function setLeaderboard(data) {
+    for (const { def, paint } of boardFaces) paint(data?.boards?.[def.stat] ?? [], data?.ranks?.[def.stat] ?? null, def.format)
+  }
+
   let sparkleAcc = 0
   return {
     group,
+    setLeaderboard,
     update(dt, elapsed) {
       for (const e of eggItems) {
         e.item.position.y = (e.y - 0.8) + Math.sin(elapsed * Math.PI + e.phase) * 0.1
