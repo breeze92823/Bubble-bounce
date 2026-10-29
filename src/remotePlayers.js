@@ -6,6 +6,7 @@ import { NET } from './config.js'
 import { BUBBLE as TINTS } from './config/palette.js'
 import { buildDefaultCharacter, loadBaseCharacter } from './avatar/character.js'
 import { disposeAnimator, makeAnimator } from './avatar/animator.js'
+import { applyProportions, attachEquippedAccessories } from './avatar/loader.js'
 import { createBubbleMesh } from './shared/bubble.js'
 
 const SMOOTH = 14 // 1/s: how fast a remote avatar closes on its latest pose
@@ -18,6 +19,7 @@ function disposeBubble(scene, mesh) {
 
 export function createRemotePlayers({ scene, particles }) {
   const players = new Map() // session id -> remote
+  const looks = new Map() // session id -> { equipped, proportions }; may arrive before the first pose
 
   function setAvatar(r, next) {
     if (r.avatar) r.group.remove(r.avatar)
@@ -28,12 +30,27 @@ export function createRemotePlayers({ scene, particles }) {
     r.animator?.setOverride(r.pose?.o || null)
   }
 
+  // The base rig dressed with this player's equipped cosmetics and proportions (when their look is
+  // known). Only the newest load may land, like main.js loadAvatar.
+  async function load(r) {
+    const mine = ++r.generation
+    const look = looks.get(r.id)
+    const rig = await loadBaseCharacter()
+    if (r.gone || mine !== r.generation) return
+    if (look) {
+      await attachEquippedAccessories(rig, look.equipped)
+      if (r.gone || mine !== r.generation) return
+      applyProportions(rig, look.proportions)
+    }
+    setAvatar(r, rig)
+  }
+
   function spawn(id) {
     const group = new Group()
     scene.add(group)
-    const r = { id, group, avatar: null, animator: null, bubble: null, bubbleType: '', pose: null, seen: 0, gone: false }
+    const r = { id, group, avatar: null, animator: null, bubble: null, bubbleType: '', pose: null, seen: 0, gone: false, generation: 0 }
     setAvatar(r, buildDefaultCharacter()) // visible at once; swapped for the real rig when it loads
-    loadBaseCharacter().then((rig) => !r.gone && setAvatar(r, rig))
+    load(r)
     players.set(id, r)
     return r
   }
@@ -52,6 +69,7 @@ export function createRemotePlayers({ scene, particles }) {
     const r = players.get(id)
     if (!r) return
     r.gone = true
+    looks.delete(id)
     if (r.bubble) disposeBubble(scene, r.bubble)
     disposeAnimator(r.animator)
     scene.remove(r.group)
@@ -81,8 +99,16 @@ export function createRemotePlayers({ scene, particles }) {
         r.bubble.position.set(b.x, b.y, b.z)
       }
     },
+    // msg: { id, equipped, proportions }
+    look(msg) {
+      if (!msg?.id) return
+      looks.set(msg.id, msg)
+      const r = players.get(msg.id)
+      if (r) load(r)
+    },
     remove,
     clear() {
+      looks.clear()
       for (const id of [...players.keys()]) remove(id)
     },
     update(dt) {

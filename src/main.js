@@ -28,7 +28,7 @@ import { installHud } from './ui/hud.js'
 import { createGuide } from './ui/guide.js'
 import { installAllWindows } from './ui/windows/index.js'
 import { isOpen as anyWindowOpen } from './ui/windows/shell.js'
-import { initNet, onLeaderboardData, onRemotePlayers, sendPose } from './net.js'
+import { initNet, onLeaderboardData, onRemotePlayers, sendPose, setLook } from './net.js'
 import { createRemotePlayers } from './remotePlayers.js'
 import { installSound } from './sound.js'
 import { installInteract,setInteractEnabled, updateInteract } from './interact.js'
@@ -154,7 +154,7 @@ const ride = createRide({ scene, player, particles, floatingTexts, inflater, dir
 const world = buildWorld(scene, { particles, floatingTexts, inflater, player, ride }) // the zones
 onLeaderboardData(world.zones['spawn-hub'].setLeaderboard)
 const remotePlayers = createRemotePlayers({ scene, particles })
-onRemotePlayers({ pose: remotePlayers.pose, remove: remotePlayers.remove, clear: remotePlayers.clear })
+onRemotePlayers({ pose: remotePlayers.pose, look: remotePlayers.look, remove: remotePlayers.remove, clear: remotePlayers.clear })
 createPlayerBody()
 syncYawToPlayer()
 
@@ -192,6 +192,12 @@ onState('rebirth', () => advanceTutorial('rebirth'))
 
 setAvatar(buildDefaultCharacter()) // visible immediately; replaced once the rig loads
 
+// Tells the other players what we wear, so they dress our rig the same (guests wear the default).
+function shareLook() {
+  const user = !!bloxity.authState.user
+  setLook({ equipped: user ? bloxity.getEquippedAvatar() : null, proportions: user ? bloxity.getProportions() : null })
+}
+
 async function loadAvatar() {
   // The SDK fires twice per change (optimistic + confirmed); only the newest load may land.
   const mine = ++generation
@@ -203,6 +209,7 @@ async function loadAvatar() {
     if (mine !== generation) return
     applyProportions(group, bloxity.authState.user ? bloxity.getProportions() : null)
     setAvatar(group)
+    shareLook()
   } finally {
     if (mine === generation) avatarReady = true
   }
@@ -217,7 +224,10 @@ bloxity.subscribeAuth((s) => {
   }
 })
 bloxity.onAvatarChanged(loadAvatar)
-bloxity.onProportionsChanged(() => applyProportions(avatar, bloxity.getProportions()))
+bloxity.onProportionsChanged(() => {
+  applyProportions(avatar, bloxity.getProportions())
+  shareLook()
+})
 bloxity.onRespawnRequest(respawn)
 
 // --- Modes + keys --------------------------------------------------------------

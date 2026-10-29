@@ -80,6 +80,13 @@ export function sendPose(pose) {
   if (net.connected) send('pose', pose)
 }
 
+// Our Bloxity look ({ equipped, proportions }) for the others: kept, so a reconnect resends it.
+let myLook = null
+export function setLook(look) {
+  myLook = look
+  if (net.connected) send('look', look)
+}
+
 function attach(room) {
   net.room = room
   net.connected = true
@@ -102,7 +109,9 @@ function attach(room) {
     net.hydrated = false
     console.warn('[net] server could not read the saved progress; saving is off for this session')
   })
+  if (myLook) send('look', myLook)
   room.onMessage('pose', (msg) => remote.pose?.(msg))
+  room.onMessage('look', (msg) => remote.look?.(msg))
   room.onMessage('playerLeft', (msg) => remote.remove?.(msg?.id))
   room.onMessage('leaderboard', (data) => {
     net.leaderboard = data
